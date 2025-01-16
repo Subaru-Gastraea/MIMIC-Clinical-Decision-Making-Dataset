@@ -27,10 +27,15 @@ from tools.utils import count_radiology_modality_and_organ_matches
 warnings.filterwarnings("default", category=UserWarning)
 
 
-def extract_hadm_ids(pathology, diag_icd, discharge_df, diag_counts=20, cc=10):
+def extract_hadm_ids(pathology, pathology_L, diag_icd, discharge_df, diag_counts=20, cc=10):
+    filtered_diag_icd = diag_icd.copy()
+    
+    for pa in pathology_L:
+        filtered_diag_icd = filtered_diag_icd[filtered_diag_icd["long_title"].str.contains(pa, case=False)]
+    
     # Grab all hadm_ids with appendicitis
     hadm_ids = (
-        diag_icd[diag_icd["long_title"].str.contains(pathology, case=False)][
+        filtered_diag_icd[
             ["hadm_id"]
         ]
         .drop_duplicates()["hadm_id"]
@@ -39,7 +44,7 @@ def extract_hadm_ids(pathology, diag_icd, discharge_df, diag_counts=20, cc=10):
     print("There are {} hadm_ids with {}".format(len(hadm_ids), pathology))
 
     # Get appendicitis diagnoses counts
-    v_counts = diag_icd[diag_icd["long_title"].str.contains(pathology, case=False)][
+    v_counts = filtered_diag_icd[
         "long_title"
     ].value_counts()
     print_value_counts(v_counts, diag_counts)
@@ -233,109 +238,118 @@ def create_valuestr_microbio(row):
 
 
 def load_data(base_mimic: str):
-    base_hosp = join(base_mimic, "hosp")
-    base_notes = join(base_mimic, "note")
+    # base_hosp = join(base_mimic, "hosp")
+    base_ed = join(base_mimic, "ed")
+    # base_notes = join(base_mimic, "note")
 
     # Load admissions
-    admissions_df = pd.read_csv(join(base_hosp, "admissions.csv"))
+    # admissions_df = pd.read_csv(join(base_hosp, "admissions.csv"))
 
     # Load transfers
-    transfers_df = pd.read_csv(join(base_mimic, "hosp", "transfers.csv"))
+    # transfers_df = pd.read_csv(join(base_mimic, "hosp", "transfers.csv"))
 
-    diagnoses_icd_df = pd.read_csv(join(base_hosp, "diagnoses_icd.csv"))
+    ed_diagnoses_df = pd.read_csv(join(base_ed, "diagnosis.csv"))
+    ed_diagnoses_df.rename(columns={"icd_title": "long_title"}, inplace=True)
     # remove NAN ICD Codes
-    diagnoses_icd_df = diagnoses_icd_df[~diagnoses_icd_df.icd_code.isna()]
+    ed_diag_icd = ed_diagnoses_df[~ed_diagnoses_df.icd_code.isna()]
 
-    # ICD Descriptions
-    icd_descriptions = pd.read_csv(join(base_hosp, "d_icd_diagnoses.csv"))
 
-    # Expand to include names of disease, once for version 9 and once for version 10
-    diag_icd9 = diagnoses_icd_df[diagnoses_icd_df.icd_version == 9]
-    icd_descriptions_9 = icd_descriptions[icd_descriptions.icd_version == 9]
-    diag_icd9 = diag_icd9.merge(
-        icd_descriptions_9[["icd_code", "long_title"]], on="icd_code", how="left"
-    )
+    # diagnoses_icd_df = pd.read_csv(join(base_hosp, "diagnoses_icd.csv"))
+    # # remove NAN ICD Codes
+    # diagnoses_icd_df = diagnoses_icd_df[~diagnoses_icd_df.icd_code.isna()]
 
-    diag_icd10 = diagnoses_icd_df[diagnoses_icd_df.icd_version == 10]
-    icd_descriptions_10 = icd_descriptions[icd_descriptions.icd_version == 10]
-    diag_icd10 = diag_icd10.merge(
-        icd_descriptions_10[["icd_code", "long_title"]], on="icd_code", how="left"
-    )
+    # # ICD Descriptions
+    # icd_descriptions = pd.read_csv(join(base_hosp, "d_icd_diagnoses.csv"))
 
-    diag_icd = pd.concat([diag_icd9, diag_icd10])
+    # # Expand to include names of disease, once for version 9 and once for version 10
+    # diag_icd9 = diagnoses_icd_df[diagnoses_icd_df.icd_version == 9]
+    # icd_descriptions_9 = icd_descriptions[icd_descriptions.icd_version == 9]
+    # diag_icd9 = diag_icd9.merge(
+    #     icd_descriptions_9[["icd_code", "long_title"]], on="icd_code", how="left"
+    # )
+
+    # diag_icd10 = diagnoses_icd_df[diagnoses_icd_df.icd_version == 10]
+    # icd_descriptions_10 = icd_descriptions[icd_descriptions.icd_version == 10]
+    # diag_icd10 = diag_icd10.merge(
+    #     icd_descriptions_10[["icd_code", "long_title"]], on="icd_code", how="left"
+    # )
+
+    # diag_icd = pd.concat([diag_icd9, diag_icd10])
 
     # Load procedures
-    procedures_df = pd.read_csv(join(base_hosp, "procedures_icd.csv"))
+    # procedures_df = pd.read_csv(join(base_hosp, "procedures_icd.csv"))
 
-    # Load description of procedures and merge
-    procedures_descr_df = pd.read_csv(join(base_hosp, "d_icd_procedures.csv"))
-    procedures_descr_9_df = procedures_descr_df[procedures_descr_df.icd_version == 9]
-    procedures_descr_10_df = procedures_descr_df[procedures_descr_df.icd_version == 10]
-    procedures_9_df = procedures_df[procedures_df.icd_version == 9]
-    procedures_10_df = procedures_df[procedures_df.icd_version == 10]
-    procedures_9_df = procedures_9_df.merge(
-        procedures_descr_9_df[["icd_code", "long_title"]], on="icd_code", how="left"
-    )
-    procedures_10_df = procedures_10_df.merge(
-        procedures_descr_10_df[["icd_code", "long_title"]], on="icd_code", how="left"
-    )
-    procedures_df = pd.concat([procedures_9_df, procedures_10_df])
+    # # Load description of procedures and merge
+    # procedures_descr_df = pd.read_csv(join(base_hosp, "d_icd_procedures.csv"))
+    # procedures_descr_9_df = procedures_descr_df[procedures_descr_df.icd_version == 9]
+    # procedures_descr_10_df = procedures_descr_df[procedures_descr_df.icd_version == 10]
+    # procedures_9_df = procedures_df[procedures_df.icd_version == 9]
+    # procedures_10_df = procedures_df[procedures_df.icd_version == 10]
+    # procedures_9_df = procedures_9_df.merge(
+    #     procedures_descr_9_df[["icd_code", "long_title"]], on="icd_code", how="left"
+    # )
+    # procedures_10_df = procedures_10_df.merge(
+    #     procedures_descr_10_df[["icd_code", "long_title"]], on="icd_code", how="left"
+    # )
+    # procedures_df = pd.concat([procedures_9_df, procedures_10_df])
 
     # Load notes
-    discharge_df = pd.read_csv(join(base_notes, "discharge.csv"))
+    # discharge_df = pd.read_csv(join(base_notes, "discharge.csv"))
 
-    # Load radiology reports
-    radiology_report_df = pd.read_csv(join(base_notes, "radiology.csv"))
+    # # Load radiology reports
+    # radiology_report_df = pd.read_csv(join(base_notes, "radiology.csv"))
 
-    # Load radiology report details
-    radiology_report_details_df = pd.read_csv(join(base_notes, "radiology_detail.csv"))
+    # # Load radiology report details
+    # radiology_report_details_df = pd.read_csv(join(base_notes, "radiology_detail.csv"))
 
     # Load microbiology events
-    microbiology_df = pd.read_csv(join(base_hosp, "microbiologyevents.csv"))
-    # Remove canceled tests
-    microbiology_df = microbiology_df[microbiology_df["org_itemid"] != 90760.0]
+    # microbiology_df = pd.read_csv(join(base_hosp, "microbiologyevents.csv"))
+    # # Remove canceled tests
+    # microbiology_df = microbiology_df[microbiology_df["org_itemid"] != 90760.0]
 
     # Load lab events
-    lab_events_df = pd.read_csv(join(base_hosp, "labevents.csv"))
+    # lab_events_df = pd.read_csv(join(base_hosp, "labevents.csv"))
 
-    # Load lab event descriptions
-    lab_events_descr_df = pd.read_csv(join(base_hosp, "d_labitems.csv"))
+    # # Load lab event descriptions
+    # lab_events_descr_df = pd.read_csv(join(base_hosp, "d_labitems.csv"))
 
-    # Expand lab events to include descriptions
-    lab_events_df = lab_events_df.merge(
-        lab_events_descr_df[["itemid", "label"]], on="itemid", how="left"
-    )
+    # # Expand lab events to include descriptions
+    # lab_events_df = lab_events_df.merge(
+    #     lab_events_descr_df[["itemid", "label"]], on="itemid", how="left"
+    # )
 
-    # Create valuestr from valuenum and valueuom
-    lab_events_df["valuestr"] = lab_events_df.apply(
-        lambda row: create_valuestr_lab(row),
-        axis=1,
-    )
+    # # Create valuestr from valuenum and valueuom
+    # lab_events_df["valuestr"] = lab_events_df.apply(
+    #     lambda row: create_valuestr_lab(row),
+    #     axis=1,
+    # )
 
-    # Create valuestr for microbio
-    microbiology_df["valuestr"] = microbiology_df.apply(
-        lambda row: create_valuestr_microbio(row),
-        axis=1,
-    )
+    # # Create valuestr for microbio
+    # microbiology_df["valuestr"] = microbiology_df.apply(
+    #     lambda row: create_valuestr_microbio(row),
+    #     axis=1,
+    # )
 
-    # Convert transfers to datetime
-    transfers_df["intime"] = pd.to_datetime(transfers_df["intime"])
-    # Convert lab events charrtime to datetime
-    lab_events_df["charttime"] = pd.to_datetime(lab_events_df["charttime"])
-    # Convert microbiology charttime to datetime
-    microbiology_df["charttime"] = pd.to_datetime(microbiology_df["charttime"])
+    # # Convert transfers to datetime
+    # transfers_df["intime"] = pd.to_datetime(transfers_df["intime"])
+    # # Convert lab events charrtime to datetime
+    # lab_events_df["charttime"] = pd.to_datetime(lab_events_df["charttime"])
+    # # Convert microbiology charttime to datetime
+    # microbiology_df["charttime"] = pd.to_datetime(microbiology_df["charttime"])
 
-    return (
-        admissions_df,
-        transfers_df,
-        diag_icd,
-        procedures_df,
-        discharge_df,
-        radiology_report_df,
-        radiology_report_details_df,
-        lab_events_df,
-        microbiology_df,
-    )
+    return ed_diag_icd
+    # (
+    #     # admissions_df,
+    #     # transfers_df,
+    #     ed_diag_icd,
+    #     # diag_icd,
+    #     # procedures_df,
+    #     # discharge_df,
+    #     # radiology_report_df,
+    #     # radiology_report_details_df,
+    #     # lab_events_df,
+    #     # microbiology_df,
+    # )
 
 
 def fill_nan_hadm(
