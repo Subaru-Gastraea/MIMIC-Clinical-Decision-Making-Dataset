@@ -27,12 +27,15 @@ from tools.utils import count_radiology_modality_and_organ_matches
 warnings.filterwarnings("default", category=UserWarning)
 
 
-def extract_hadm_ids(pathology, pathology_L, diag_icd, discharge_df, diag_counts=20, cc=10):
+def extract_hadm_ids(pathology, pathology_L, exclude_L, diag_icd, discharge_df, diag_counts=20, cc=10):
     filtered_diag_icd = diag_icd.copy()
     
     for pa in pathology_L:
         filtered_diag_icd = filtered_diag_icd[filtered_diag_icd["long_title"].str.contains(pa, case=False)]
     
+    for ex in exclude_L:
+        filtered_diag_icd = filtered_diag_icd[~filtered_diag_icd["long_title"].str.contains(ex, case=False)]
+
     # Grab all hadm_ids with appendicitis
     hadm_ids = (
         filtered_diag_icd[
@@ -238,9 +241,9 @@ def create_valuestr_microbio(row):
 
 
 def load_data(base_mimic: str):
-    # base_hosp = join(base_mimic, "hosp")
+    base_hosp = join(base_mimic, "hosp")
     base_ed = join(base_mimic, "ed")
-    # base_notes = join(base_mimic, "note")
+    base_notes = join(base_mimic, "note")
 
     # Load admissions
     # admissions_df = pd.read_csv(join(base_hosp, "admissions.csv"))
@@ -248,10 +251,22 @@ def load_data(base_mimic: str):
     # Load transfers
     # transfers_df = pd.read_csv(join(base_mimic, "hosp", "transfers.csv"))
 
-    ed_diagnoses_df = pd.read_csv(join(base_ed, "diagnosis.csv"))
-    ed_diagnoses_df.rename(columns={"icd_title": "long_title"}, inplace=True)
-    # remove NAN ICD Codes
-    ed_diag_icd = ed_diagnoses_df[~ed_diagnoses_df.icd_code.isna()]
+    edstays = pd.read_csv(join(base_ed, "edstays.csv"))
+    edstays = edstays[['subject_id', 'hadm_id', 'stay_id']]
+    diagnosis = pd.read_csv(join(base_ed, "diagnosis.csv"))
+    diagnosis = diagnosis[['stay_id', 'icd_code', 'icd_version', 'icd_title']]
+
+    ed_diag_icd = pd.merge(edstays, diagnosis, on='stay_id')
+
+    del edstays, diagnosis
+    ed_diag_icd = ed_diag_icd.drop('stay_id', axis=1)
+    ed_diag_icd = ed_diag_icd[ed_diag_icd['hadm_id'].notna()]   # 排除急診後沒有住院的病人
+    ed_diag_icd = ed_diag_icd.rename(columns={'icd_title': 'long_title'})
+
+    # ed_diagnoses_df = pd.read_csv(join(base_ed, "diagnosis.csv"))
+    # ed_diagnoses_df.rename(columns={"icd_title": "long_title"}, inplace=True)
+    # # remove NAN ICD Codes
+    # ed_diag_icd = ed_diagnoses_df[~ed_diagnoses_df.icd_code.isna()]
 
 
     # diagnoses_icd_df = pd.read_csv(join(base_hosp, "diagnoses_icd.csv"))
@@ -302,12 +317,12 @@ def load_data(base_mimic: str):
     # # Load radiology report details
     # radiology_report_details_df = pd.read_csv(join(base_notes, "radiology_detail.csv"))
 
-    # Load microbiology events
+    # # Load microbiology events
     # microbiology_df = pd.read_csv(join(base_hosp, "microbiologyevents.csv"))
     # # Remove canceled tests
     # microbiology_df = microbiology_df[microbiology_df["org_itemid"] != 90760.0]
 
-    # Load lab events
+    # # Load lab events
     # lab_events_df = pd.read_csv(join(base_hosp, "labevents.csv"))
 
     # # Load lab event descriptions
@@ -331,7 +346,7 @@ def load_data(base_mimic: str):
     # )
 
     # # Convert transfers to datetime
-    # transfers_df["intime"] = pd.to_datetime(transfers_df["intime"])
+    # # transfers_df["intime"] = pd.to_datetime(transfers_df["intime"])
     # # Convert lab events charrtime to datetime
     # lab_events_df["charttime"] = pd.to_datetime(lab_events_df["charttime"])
     # # Convert microbiology charttime to datetime
@@ -341,7 +356,7 @@ def load_data(base_mimic: str):
     # (
     #     # admissions_df,
     #     # transfers_df,
-    #     ed_diag_icd,
+    #     # ed_diag_icd,
     #     # diag_icd,
     #     # procedures_df,
     #     # discharge_df,
