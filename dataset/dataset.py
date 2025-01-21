@@ -246,22 +246,22 @@ def load_data(base_mimic: str):
     base_notes = join(base_mimic, "note")
 
     # Load admissions
-    # admissions_df = pd.read_csv(join(base_hosp, "admissions.csv"))
+    admissions_df = pd.read_csv(join(base_hosp, "admissions.csv"))
 
     # Load transfers
-    # transfers_df = pd.read_csv(join(base_mimic, "hosp", "transfers.csv"))
+    transfers_df = pd.read_csv(join(base_mimic, "hosp", "transfers.csv"))
 
-    edstays = pd.read_csv(join(base_ed, "edstays.csv"))
-    edstays = edstays[['subject_id', 'hadm_id', 'stay_id']]
-    diagnosis = pd.read_csv(join(base_ed, "diagnosis.csv"))
-    diagnosis = diagnosis[['stay_id', 'icd_code', 'icd_version', 'icd_title']]
+    # edstays = pd.read_csv(join(base_ed, "edstays.csv"))
+    # edstays = edstays[['subject_id', 'hadm_id', 'stay_id']]
+    # diagnosis = pd.read_csv(join(base_ed, "diagnosis.csv"))
+    # diagnosis = diagnosis[['stay_id', 'icd_code', 'icd_version', 'icd_title']]
 
-    ed_diag_icd = pd.merge(edstays, diagnosis, on='stay_id')
+    # ed_diag_icd = pd.merge(edstays, diagnosis, on='stay_id')
 
-    del edstays, diagnosis
-    ed_diag_icd = ed_diag_icd.drop('stay_id', axis=1)
-    ed_diag_icd = ed_diag_icd[ed_diag_icd['hadm_id'].notna()]   # 排除急診後沒有住院的病人
-    ed_diag_icd = ed_diag_icd.rename(columns={'icd_title': 'long_title'})
+    # del edstays, diagnosis
+    # ed_diag_icd = ed_diag_icd.drop('stay_id', axis=1)
+    # ed_diag_icd = ed_diag_icd[ed_diag_icd['hadm_id'].notna()]   # 排除急診後沒有住院的病人
+    # ed_diag_icd = ed_diag_icd.rename(columns={'icd_title': 'long_title'})
 
     # ed_diagnoses_df = pd.read_csv(join(base_ed, "diagnosis.csv"))
     # ed_diagnoses_df.rename(columns={"icd_title": "long_title"}, inplace=True)
@@ -352,19 +352,18 @@ def load_data(base_mimic: str):
     # # Convert microbiology charttime to datetime
     # microbiology_df["charttime"] = pd.to_datetime(microbiology_df["charttime"])
 
-    return ed_diag_icd
-    # (
-    #     # admissions_df,
-    #     # transfers_df,
-    #     # ed_diag_icd,
-    #     # diag_icd,
-    #     # procedures_df,
-    #     # discharge_df,
-    #     # radiology_report_df,
-    #     # radiology_report_details_df,
-    #     # lab_events_df,
-    #     # microbiology_df,
-    # )
+    return (
+        admissions_df,
+        transfers_df,
+        # ed_diag_icd,
+        # diag_icd,
+        # procedures_df,
+        # discharge_df,
+        # radiology_report_df,
+        # radiology_report_details_df,
+        # lab_events_df,
+        # microbiology_df,
+    )
 
 
 def fill_nan_hadm(
